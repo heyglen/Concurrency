@@ -4,7 +4,7 @@ Simplification of threading
 
 # Install
 
-pip install git+git://github.com/heyglen/Concurrency.git
+pip install git+git://github.com/heyglen/Concurrency.git#egg=Concurrency
 
 # Uninstall
 

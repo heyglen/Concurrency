@@ -23,17 +23,17 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1',
+    version='0.1a1',
 
     description='Simplified concurrency',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/heyglen/concurrency',
+    url='https://github.com/heyglen/Concurrency',
 
     # Author details
     author='Glen Harmon',
-    author_email='glencharmon@gmai.com',
+    author_email='glencharmon@gmail.com',
 
     # Choose your license
     license='MIT',

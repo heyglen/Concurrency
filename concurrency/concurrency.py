@@ -5,10 +5,17 @@ import logging
 import click
 import concurrent.futures
 
+class RunInstance(object):
+    def __init__(self, fn, inputs, *args, **kwargs):
+        self.fn = fn
+        self.input = inputs
+        self.args = args
+        self.kwargs = kwargs
+
 
 class Concurrency(object):
     _timeout = 180
-    def __init__(self, fn, maximum_concurrency=5, concurrency_type='threading', timeout=180, progress_bar=False, label=None, debug=False):
+    def __init__(self, fn, maximum_concurrency=5, concurrency_type='threading', timeout=180, progress_bar=None, label=None, debug=False):
         self._timeout = timeout or Concurrency._timeout
         self._fn = fn
         self._maximum_concurrency = maximum_concurrency
@@ -51,8 +58,8 @@ class Concurrency(object):
         
         with self._concurrency_type(max_workers=self._maximum_concurrency) as executor:
             for _input in inputs:
-                run = (self._fn, _input, args, kwargs)
-                futures.append((executor.submit(self._fn, _input, *args, **kwargs), run))
+                #run = RunInstance(self._fn, _input, args, kwargs)
+                futures.append((executor.submit(run.fn, run.input, *run.args, **run.kwargs), run))
             progress_bar = click.progressbar(length=len(futures), label=label)
             with progress_bar as progress:
                 while len(futures):
@@ -60,10 +67,11 @@ class Concurrency(object):
                         exception = None
                         result = None
                         try:
-                            exception = future.exception(timeout=self._timeout)
-                            _input = run[1]
-                            self._exception_callback(_input)
-                            self._logger.error('{0}: {1}'.format(type(exception).__name__, exception))
+                            raised_exception = future.exception(timeout=self._timeout)
+                            _input = run.input
+                            if self._exception_callback:
+                                self._exception_callback(raised_exception)
+                            self._logger.error('{0}: {1}'.format(type(raised_exception).__name__, raised_exception))
                             retries.append(run)
                         except concurrent.futures.TimeoutError:
                             pass
@@ -74,12 +82,12 @@ class Concurrency(object):
                         except concurrent.futures.TimeoutError:
                             self._logger.debug('Timeout')
                             if self._timeout_callback is not None:
-                                _input = run[1]
-                                self._timeout_callback(_input)
+                                self._timeout_callback(run.input)
                     futures = []
                     self._logger.debug('Retrying {0} failed runs'.format(len(retries)))
                     for run in retries:
-                        fn, _input, args, kwargs = run
-                        futures.append((executor.submit(fn, _input, *args, **kwargs), run))
+                        #fn, _input, args, kwargs = run
+                        futures.append((executor.submit(run.fn, run.input, *run.args, **run.kwargs), run))
         return results
+
 

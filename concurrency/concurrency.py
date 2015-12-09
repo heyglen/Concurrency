@@ -58,7 +58,7 @@ class Concurrency(object):
         
         with self._concurrency_type(max_workers=self._maximum_concurrency) as executor:
             for _input in inputs:
-                #run = RunInstance(self._fn, _input, args, kwargs)
+                run = RunInstance(self._fn, _input, args, kwargs)
                 futures.append((executor.submit(run.fn, run.input, *run.args, **run.kwargs), run))
             progress_bar = click.progressbar(length=len(futures), label=label)
             with progress_bar as progress:

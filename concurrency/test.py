@@ -3,7 +3,7 @@
 from concurrency import Concurrency
 
 
-def exception_fn():
+def exception_fn(input):
     raise ValueError('Bad!')
 
 

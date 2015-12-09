@@ -7,10 +7,9 @@ import click
 import concurrent.futures
 
 
-class RunInstance(object):
-    def __init__(self, fn, inputs, *args, **kwargs):
-        self.fn = fn
-        self.input = inputs
+class Task(object):
+    def __init__(self, item, *args, **kwargs):
+        self.item = item
         self.args = args
         self.kwargs = kwargs
 
@@ -33,7 +32,8 @@ class no_progress_bar(object):
 class Concurrency(object):
     _timeout = 180
 
-    def __init__(self, fn, maximum_concurrency=5, concurrency_type='threading', timeout=180, progress_bar=None, label=None, debug=False):
+    def __init__(self, fn, maximum_concurrency=5, concurrency_type='threading',
+                 timeout=180, progress_bar=None, label=None, debug=False):
         self._timeout = timeout or Concurrency._timeout
         self._fn = fn
         self._maximum_concurrency = maximum_concurrency
@@ -54,10 +54,10 @@ class Concurrency(object):
         handler.setFormatter(logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s'))
         self._logger.addHandler(handler)
 
-    def _single_run(self, inputs, *args, **kwargs):
+    def _single_run(self, tasks):
         results = list()
-        for _input in inputs:
-            results.append(self._fn(_input, *args, **kwargs))
+        for task in tasks:
+            results.append(self._fn(task))
         return results
 
     def _setup_progress_bar(self, length, label):
@@ -71,46 +71,18 @@ class Concurrency(object):
     def set_timeout_callback(self, fn):
         self._timeout_callback = fn
 
-    def run(self, inputs, *args, **kwargs):
+    def run(self, tasks):
         if self._debug:
-            return self._single_run(inputs, *args, **kwargs)
-        futures = list()
-        retries = list()
+            return self._single_run(tasks)
         results = list()
         label = None
         if self._progress_bar:
             label = self._task_label
 
         with self._concurrency_type(max_workers=self._maximum_concurrency) as executor:
-            for _input in inputs:
-                run = RunInstance(self._fn, _input, args, kwargs)
-                futures.append((executor.submit(run.fn, run.input, *run.args, **run.kwargs), run))
-            progress_bar = self._setup_progress_bar(len(futures), label)
+            progress_bar = self._setup_progress_bar(len(tasks), label)
             with progress_bar as progress:
-                while len(futures):
-                    for future, run in futures:
-                        # exception = None
-                        result = None
-                        try:
-                            raised_exception = future.exception(timeout=self._timeout)
-                            _input = run.input
-                            # if self._exception_callback:
-                            #     self._exception_callback(raised_exception)
-                            self._logger.error('{0}: {1}'.format(type(raised_exception).__name__, raised_exception))
-                            retries.append(run)
-                        except concurrent.futures.TimeoutError:
-                            pass
-                        try:
-                            result = future.result(timeout=self._timeout)
-                            results.append(result)
-                            progress.update(1)
-                        except concurrent.futures.TimeoutError:
-                            self._logger.debug('Timeout')
-                            if self._timeout_callback is not None:
-                                self._timeout_callback(run.input)
-                    futures = []
-                    self._logger.debug('Retrying {0} failed runs'.format(len(retries)))
-                    for run in retries:
-                        # fn, _input, args, kwargs = run
-                        futures.append((executor.submit(run.fn, run.input, *run.args, **run.kwargs), run))
+                for result in executor.map(self._fn, tasks, timeout=self._timeout):
+                    results.append(result)
+                    progress.update(1)
         return results

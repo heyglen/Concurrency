@@ -1,10 +1,50 @@
 # -*- coding: utf-8 -*-
 
 # import time
+import sys
 import logging
+import traceback
 
 import click
 import concurrent.futures
+
+
+class ProcessPoolExecutorStackTraced(concurrent.futures.ProcessPoolExecutor):
+
+    def submit(self, fn, *args, **kwargs):
+        """Submits the wrapped function instead of `fn`"""
+
+        return super(ProcessPoolExecutorStackTraced, self).submit(
+            self._function_wrapper, fn, *args, **kwargs)
+
+    def _function_wrapper(self, fn, *args, **kwargs):
+        """Wraps `fn` in order to preserve the traceback of any kind of
+        raised exception
+
+        """
+        try:
+            return fn(*args, **kwargs)
+        except Exception:
+            raise sys.exc_info()[0](traceback.format_exc())
+
+
+class ThreadPoolExecutorStackTraced(concurrent.futures.ThreadPoolExecutor):
+
+    def submit(self, fn, *args, **kwargs):
+        """Submits the wrapped function instead of `fn`"""
+
+        return super(ThreadPoolExecutorStackTraced, self).submit(
+            self._function_wrapper, fn, *args, **kwargs)
+
+    def _function_wrapper(self, fn, *args, **kwargs):
+        """Wraps `fn` in order to preserve the traceback of any kind of
+        raised exception
+
+        """
+        try:
+            return fn(*args, **kwargs)
+        except Exception:
+            raise sys.exc_info()[0](traceback.format_exc())
 
 
 class Task(object):
@@ -32,15 +72,17 @@ class no_progress_bar(object):
 class Concurrency(object):
     _timeout = 180
 
-    def __init__(self, fn, maximum_concurrency=5, concurrency_type='threading',
+    def __init__(self, fn, maximum_concurrency=5, concurrency_type='thread',
                  timeout=180, progress_bar=None, label=None, debug=False):
         self._timeout = timeout or Concurrency._timeout
         self._fn = fn
         self._maximum_concurrency = maximum_concurrency
-        self._concurrency_type = concurrent.futures.ThreadPoolExecutor
+        # self._concurrency_type = concurrent.futures.ThreadPoolExecutor
+        self._concurrency_type = ThreadPoolExecutorStackTraced
         self._progress_bar = progress_bar
         if concurrency_type == 'process':
-            self._concurrency_type = concurrent.futures.ProcessPoolExecutor
+            # self._concurrency_type = concurrent.futures.ProcessPoolExecutor
+            self._concurrency_type = ProcessPoolExecutorStackTraced
         self._task_label = label
         self._debug = debug
         self._exception_callback = None

@@ -1,7 +1,9 @@
 # from nose.tools import , assert_true, assert_false, assert_raises, assert_is_instance
 
 import time
+# import traceback
 
+# from functools import partial
 from concurrent.futures import TimeoutError
 
 from concurrency import Concurrency, Task
@@ -9,84 +11,100 @@ from concurrency import Concurrency, Task
 from nose.tools import assert_raises, assert_equals, assert_in
 
 
-def deep_exception_fn(data):
-    exception_fn(data)
+def deep_value_exception_fn(data):
+    value_exception_fn(data)
 
 
-def exception_fn(data):
+def value_exception_fn(data):
     raise ValueError('Bad!')
 
 
 def timeout_fn(data):
-    time.sleep(0.1)
+    time.sleep(10)
     return data
 
+
+def wrapper_fn(data, fn):
+    return fn(data)
 
 def normal_fn(data):
     return data
 
 
-class TestConcurrency(object):
+class TestThreadConcurrency(object):
     def setup(self):
         pass
 
-    def test_tread_normal(self):
+    def test_normal(self):
         inputs = (0, 1, 2, 3)
         concurrent = Concurrency(normal_fn)
-        for index, result in enumerate(concurrent.run(inputs)):
-            assert_equals(result, index)
+        for result in concurrent.run(inputs):
+            assert_in(result, inputs)
 
-    def test_tread_exception(self):
+    def test_fn_passing(self):
+        inputs = (1, 2, 3)
+        tasks = [Task(task, normal_fn) for task in inputs]
+        concurrent = Concurrency(wrapper_fn)
+        for result in concurrent.run(tasks):
+            assert_in(result, inputs)
+
+    def test_exception(self):
         tasks = list()
         for task in (1, 2, 3):
             tasks.append(Task(task))
 
-        concurrent = Concurrency(exception_fn)
-        assert_raises(ValueError, concurrent.run, tasks)
-        concurrent = Concurrency(deep_exception_fn)
+        concurrent = Concurrency(value_exception_fn)
+        results = concurrent.run(tasks)
+        assert_raises(ValueError, next, results)
+
+        concurrent = Concurrency(deep_value_exception_fn)
         try:
             concurrent.run(tasks)
         except ValueError as e:
             e = str(e)
-            assert_in('in deep_exception_fn', e)
-            assert_in('in exception_fn', e)
+            assert_in('in deep_value_exception_fn', e)
+            assert_in('in value_exception_fn', e)
 
-    def test_tread_timeout(self):
+    def tst_timeout(self):
         tasks = list()
         for task in (1, 2, 3):
             tasks.append(Task(task))
-        concurrent = Concurrency(timeout_fn, timeout=0.05)
-        # concurrent.run(tasks)
+        concurrent = Concurrency(timeout_fn, timeout=1)
         assert_raises(TimeoutError, concurrent.run, tasks)
-        # concurrent.run(tasks)
 
 
-class TestProcssConcurrency(object):
+class TestProcessConcurrency(object):
     def setup(self):
         pass
 
-    def test_process_normal(self):
+    def test_normal(self):
         inputs = (0, 1, 2, 3)
         concurrent = Concurrency(normal_fn, concurrency_type='process')
-        for index, result in enumerate(concurrent.run(inputs)):
-            assert_equals(result, index)
+        for result in concurrent.run(inputs):
+            assert_in(result, inputs)
 
-    def tst_process_exception(self):
-        tasks = list()
-        for task in (1, 2, 3):
-            tasks.append(Task(task))
+    def test_fn_passing(self):
+        inputs = (1, 2, 3)
+        tasks = [Task(task, normal_fn) for task in inputs]
+        concurrent = Concurrency(wrapper_fn, concurrency_type='process')
+        for result in concurrent.run(tasks):
+            assert_in(result, inputs)
 
-        concurrent = Concurrency(exception_fn, concurrency_type='process')
-        assert_raises(ValueError, concurrent.run, tasks)
-        concurrent = Concurrency(deep_exception_fn, concurrency_type='process')
+    def test_exception(self):
+        tasks = [Task(task) for task in (1, 2, 3)]
+        concurrent = Concurrency(value_exception_fn, concurrency_type='process')
+        results = concurrent.run(tasks)
+        assert_raises(ValueError, next, results)
+        return
+        concurrent = Concurrency(deep_value_exception_fn, concurrency_type='process')
         try:
             concurrent.run(tasks)
         except ValueError as e:
             e = str(e)
-            assert_in('in deep_exception_fn', e)
-            assert_in('in exception_fn', e)
+            assert_in('in deep_value_exception_fn', e)
+            assert_in('in value_exception_fn', e)
 
-    def tst_process_timeout(self):
+    def tst_timeout(self):
         tasks = list()
         for task in (1, 2, 3):
             tasks.append(Task(task))

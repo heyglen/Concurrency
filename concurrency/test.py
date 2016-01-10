@@ -20,12 +20,13 @@ def value_exception_fn(data):
 
 
 def timeout_fn(data):
-    time.sleep(10)
+    time.sleep(1)
     return data
 
 
 def wrapper_fn(data, fn):
     return fn(data)
+
 
 def normal_fn(data):
     return data
@@ -65,12 +66,13 @@ class TestThreadConcurrency(object):
             assert_in('in deep_value_exception_fn', e)
             assert_in('in value_exception_fn', e)
 
-    def tst_timeout(self):
+    def test_timeout(self):
         tasks = list()
         for task in (1, 2, 3):
             tasks.append(Task(task))
-        concurrent = Concurrency(timeout_fn, timeout=1)
-        assert_raises(TimeoutError, concurrent.run, tasks)
+        concurrent = Concurrency(timeout_fn, timeout=0.05)
+        futures = concurrent.run(tasks)
+        assert_raises(TimeoutError, next, futures)
 
 
 class TestProcessConcurrency(object):
@@ -104,11 +106,10 @@ class TestProcessConcurrency(object):
             assert_in('in deep_value_exception_fn', e)
             assert_in('in value_exception_fn', e)
 
-    def tst_timeout(self):
+    def test_timeout(self):
         tasks = list()
         for task in (1, 2, 3):
             tasks.append(Task(task))
         concurrent = Concurrency(timeout_fn, concurrency_type='process', timeout=0.05)
-        # concurrent.run(tasks)
-        assert_raises(TimeoutError, concurrent.run, tasks)
-        # concurrent.run(tasks)
+        futures = concurrent.run(tasks)
+        assert_raises(TimeoutError, next, futures)

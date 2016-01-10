@@ -5,16 +5,22 @@ Wraps the concurrent.futures module
   * Optional progress bar
 
 ```python
-from concurrency import Concurrency, Task
+from concurrency import Concurrency
 
 def some_fn(data):
     return data
 
 inputs = (0, 1, 2, 3)
 
-# Threaded Run
+# Async using threads
 concurrent = Concurrency(some_fn)
-results = concurrent.run(inputs)
+results = [result for result in concurrent.run(inputs)]
+print results
+# [0, 1, 2, 3]
+
+# Async using processes
+concurrent = Concurrency(some_fn)
+results = [result for result in concurrent.run(inputs, concurrency_type='process')]
 print results
 # [0, 1, 2, 3]
 

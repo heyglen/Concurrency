@@ -1,79 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# import time
-import sys
 import logging
 import traceback
 from contextlib import contextmanager
-import inspect
 
 import dill
 import click
 import concurrent.futures
-from functools import partial
-
-
-class ProcessPoolExecutorStackTraced(concurrent.futures.ProcessPoolExecutor):
-
-    @staticmethod
-    def _dump_pickle_args(*args, **kwargs):
-        pickled_args = list()
-
-        for index, arg in enumerate(args):
-            if inspect.isclass(arg):
-                pickled_args.append(index)
-
-        for arg in pickled_args:
-            args[arg] = dill.dumps(args[arg])
-
-        kwargs['_pickled_args'] = pickled_args
-
-    @staticmethod
-    def _load_pickle_args(*args, **kwargs):
-        pickled_args = kwargs.get('_pickled_args')
-        if pickled_args:
-            for arg in pickled_args:
-                args[arg] = dill.loads(args[arg])
-
-    def submit(self, fn, *args, **kwargs):
-        """Submits the wrapped function instead of `fn`"""
-        # args = list()
-        # kwargs = dict()
-
-        ProcessPoolExecutorStackTraced._dump_pickle_args(args, kwargs)
-        return super(ProcessPoolExecutorStackTraced, self).submit(
-            ProcessPoolExecutorStackTraced._fn_wrapper, fn, *args, **kwargs)
-
-    @staticmethod
-    def _fn_wrapper(fn, *args, **kwargs):
-        """Wraps `fn` in order to preserve the traceback of any kind of
-        raised exception
-        """
-        fn = dill.loads(fn)
-        ProcessPoolExecutorStackTraced._load_pickle_args(args, kwargs)
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            return type(e)(traceback.format_exc())
-            # raise sys.exc_info()[0](traceback.format_exc())
-
-
-class ThreadPoolExecutorStackTraced(concurrent.futures.ThreadPoolExecutor):
-
-    def submit(self, fn, *args, **kwargs):
-        """Submits the wrapped function instead of `fn`"""
-        return super(ThreadPoolExecutorStackTraced, self).submit(
-            self._fn_wrapper, fn, *args, **kwargs)
-
-    def _fn_wrapper(self, fn, *args, **kwargs):
-        """Wraps `fn` in order to preserve the traceback of any kind of
-        raised exception
-        """
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            return type(e)(traceback.format_exc())
-            # raise sys.exc_info()[0](traceback.format_exc())
 
 
 class Task(object):
@@ -107,12 +40,10 @@ class Concurrency(object):
         self._log_setup(name='concurrency')
 
     def _set_concurrency_type(self, concurrency_type, fn):
-        # self._concurrency_type = ThreadPoolExecutorStackTraced
         self._concurrency_type = concurrent.futures.ThreadPoolExecutor
         self._pickle = False
         self._fn = fn
         if concurrency_type == 'process' and not self._debug:
-            # self._concurrency_type = ProcessPoolExecutorStackTraced
             self._concurrency_type = concurrent.futures.ProcessPoolExecutor
             self._pickle = True
             self._fn = dill.dumps(fn)
@@ -146,7 +77,6 @@ class Concurrency(object):
     @staticmethod
     def _submit_tasks(executor, fn, pickled, tasks):
         """ Submits the function providing the correct amount of arguments """
-        # fn = partial(_fn_wrapper, fn)
         futures = set()
         for task in tasks:
             future = None
@@ -201,4 +131,3 @@ def _fn_wrapper(fn, pickled, *args, **kwargs):
         return fn(*args, **kwargs)
     except Exception as e:
         return type(e)(traceback.format_exc())
-        # raise sys.exc_info()[0](traceback.format_exc())

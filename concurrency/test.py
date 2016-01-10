@@ -1,14 +1,11 @@
-# from nose.tools import , assert_true, assert_false, assert_raises, assert_is_instance
+# -*- coding: utf-8 -*-
 
 import time
-# import traceback
-
-# from functools import partial
 from concurrent.futures import TimeoutError
 
 from concurrency import Concurrency, Task
 
-from nose.tools import assert_raises, assert_equals, assert_in
+from nose.tools import assert_raises, assert_in
 
 
 def deep_value_exception_fn(data):
